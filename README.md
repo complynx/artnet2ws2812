@@ -88,13 +88,14 @@ WORKMODE := 0x03
 WMPAYLOAD := ID + DELAY + T_STEP + L_STEP + START_COLOR + TINT + TINT_LEVEL
 ID := unique byte for settings. Won't change settings if ID is unchanged
 DELAY := big-endian representation of uint16 delay
-T_STEP := big-endian representation of uint16 t_step for color hue LED_0_COLOR[T].hue = LED_0_COLOR[T-1].hue + t_step % 360
-L_STEP := big-endian representation of uint16 l_step for color hue LED_(N)_COLOR[T].hue = LED_(N-1)_COLOR[T].hue + l_step % 360
-START_COLOR|TINT := RED + GREEN + BLUE
+T_STEP := big-endian representation of uint16 t_step
+L_STEP := big-endian representation of uint16 l_step
+START_COLOR := RED + GREEN + BLUE
+TINT := RED + GREEN + BLUE
 RED := byte color level
 GREEN := byte color level
 BLUE := byte color level
-TINT_LEVEL := byte tint level LED_COLOR = LED_COLOR * (255-TINT_LEVEL) + TINT * TINT_LEVEL
+TINT_LEVEL := byte tint level
 ```
 
 ## runtime setup
