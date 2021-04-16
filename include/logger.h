@@ -50,44 +50,58 @@ void logger_log_r(const char* file, int line, int level, const char* tag, int no
 #define LOG_R(LVL, TAG, FMT, ...) logger_log_r(__FILE__, __LINE__, LVL, TAG, 0, FMT, ##__VA_ARGS__)
 #define LOG_RN(LVL, TAG, FMT, ...) logger_log_r(__FILE__, __LINE__, LVL, TAG, 1, FMT, ##__VA_ARGS__)
 
+
+#define LOGL(LVL, FMT, ...) do{if(LVL<=LOGGER_LEVEL)LOG_R(LVL, TAG, FMT, ##__VA_ARGS__);}while(0)
+#define LOGL_N(LVL, FMT, ...) do{if(LVL<=LOGGER_LEVEL)LOG_RN(LVL, TAG, FMT, ##__VA_ARGS__);}while(0)
+
 #if LOGGER_LEVEL >= LOGGER_ERROR
 #define LOGE(FMT, ...) LOG_R(LOGGER_ERROR, TAG, FMT, ##__VA_ARGS__)
 #define LOGE_N(FMT, ...) LOG_RN(LOGGER_ERROR, TAG, FMT, ##__VA_ARGS__)
+#define IFLOGE(PROC) PROC
 #else
 #define LOGE(FMT, ...) {}
 #define LOGE_N(FMT, ...) {}
+#define IFLOGE(PROC)
 #endif
 
 #if LOGGER_LEVEL >= LOGGER_WARN
 #define LOGW(FMT, ...) LOG_R(LOGGER_WARN, TAG, FMT, ##__VA_ARGS__)
 #define LOGW_N(FMT, ...) LOG_RN(LOGGER_WARN, TAG, FMT, ##__VA_ARGS__)
+#define IFLOGW(PROC) PROC
 #else
 #define LOGW(FMT, ...) {}
 #define LOGW_N(FMT, ...) {}
+#define IFLOGW(PROC)
 #endif
 
 #if LOGGER_LEVEL >= LOGGER_INFO
 #define LOGI(FMT, ...) LOG_R(LOGGER_INFO, TAG, FMT, ##__VA_ARGS__)
 #define LOGI_N(FMT, ...) LOG_RN(LOGGER_INFO, TAG, FMT, ##__VA_ARGS__)
+#define IFLOGI(PROC)  PROC
 #else
 #define LOGI(FMT, ...) {}
 #define LOGI_N(FMT, ...) {}
+#define IFLOGI(PROC)
 #endif
 
 #if LOGGER_LEVEL >= LOGGER_DEBUG
 #define LOGD(FMT, ...) LOG_R(LOGGER_DEBUG, TAG, FMT, ##__VA_ARGS__)
 #define LOGD_N(FMT, ...) LOG_RN(LOGGER_DEBUG, TAG, FMT, ##__VA_ARGS__)
+#define IFLOGD(PROC) PROC
 #else
 #define LOGD(FMT, ...) {}
 #define LOGD_N(FMT, ...) {}
+#define IFLOGD(PROC)
 #endif
 
 #if LOGGER_LEVEL >= LOGGER_VERBOSE
 #define LOGV(FMT, ...) LOG_R(LOGGER_VERBOSE, TAG, FMT, ##__VA_ARGS__)
 #define LOGV_N(FMT, ...) LOG_RN(LOGGER_VERBOSE, TAG, FMT, ##__VA_ARGS__)
+#define IFLOGV(PROC) PROC
 #else
 #define LOGV(FMT, ...) {}
 #define LOGV_N(FMT, ...) {}
+#define IFLOGV(PROC)
 #endif
 
 #endif /* LOGGER_H_ */

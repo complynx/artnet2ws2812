@@ -1,8 +1,20 @@
 #ifndef ART_NET_H_
 #define ART_NET_H_
 
-#define PORT 6454
-#define SHIFT 0
+#ifndef ART_NET_PORT
+#define ART_NET_PORT 6454
+#endif
+
+#ifndef ART_NET_SHIFT
+#define ART_NET_SHIFT 0
+#endif
+#ifndef ART_NET_UNIVERSE
+#define ART_NET_UNIVERSE 0
+#endif
+
+#ifndef SEQUENCE_ROLLOVER_TOLERANCE
+#define SEQUENCE_ROLLOVER_TOLERANCE 30
+#endif
 
 void init_server();
 

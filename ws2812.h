@@ -4,8 +4,15 @@
 #include <stdint.h>
 
 #ifndef LED_NUMBER
-    #define LED_NUMBER 3
+    #define LED_NUMBER 34
 #endif
+
+enum {
+    DMX_STRAIGHT = 0,
+    DMX_CHAIN,
+    DMX_CHAIN_REVERSED,
+    DMX_RAINBOW,
+};
 
 void ws2812_update(uint8_t *rgbbytes, int len);
 void ws2812_init();
