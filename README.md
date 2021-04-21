@@ -55,7 +55,7 @@ GREEN := byte color level
 BLUE := byte color level
 ```
 
-#### 1 — DMX chain reversed
+#### 2 — DMX chain reversed
 
 Shifts all the leds by 1 and pushes input into the last led, using LED_NUMBER parameter
 ```
@@ -69,7 +69,7 @@ GREEN := byte color level
 BLUE := byte color level
 ```
 
-#### 2 — Rainbow
+#### 3 — Rainbow
 
 Starts a simple rainbow effect
 Parameters:
