@@ -73,7 +73,7 @@ BLUE := byte color level
 
 Starts a simple rainbow effect
 Parameters:
-* ID — unique identifier for current settings, to prevent restaring if the same settings were sent
+* ID — unique identifier for current settings, to prevent restaring if the same settings were sent. Restart = resetting starting color. Other settings will be overwritten. If they are the same, it won't change anything.
 * delay — delay between steps in milliseconds, actual delay will be quantized by portTICK_PERIOD_MS
 * t_step — hue increment between time steps, 0-359 `LED(N).COLOR(T).hue = (LED(N).COLOR(T-1).hue + t_step) % 360`
 * l_step — hue increment between adjascent leds, 0-359 `LED(N+1).COLOR(T).hue = (LED(N).COLOR(T).hue + l_step) % 360`
@@ -86,7 +86,7 @@ WORKMODE + WMPAYLOAD
 
 WORKMODE := 0x03
 WMPAYLOAD := ID + DELAY + T_STEP + L_STEP + START_COLOR + TINT + TINT_LEVEL
-ID := unique byte for settings. Won't change settings if ID is unchanged
+ID := unique byte
 DELAY := big-endian representation of uint16 delay
 T_STEP := big-endian representation of uint16 t_step
 L_STEP := big-endian representation of uint16 l_step

@@ -15,6 +15,8 @@
 #include "ws2812.h"
 #include "logger.h"
 
+#include "color_conv.h"
+
 static const char* TAG = "ws2812";
 
 static EventGroupHandle_t ws2812_event_group;
@@ -23,12 +25,6 @@ static ws2812_pixel_t *pixels=NULL;
 static uint8_t program = 0;
 #define REFRESH_PIXELS_BIT BIT0
 
-typedef struct {
-    double h;       // angle in degrees
-    double s;       // a fraction between 0 and 1
-    double v;       // a fraction between 0 and 1
-} color_HSV;
-#define HUE_UNDEFINED -0.0000001
 struct program_rainbow {
     uint8_t id; // unique id for this setting. If the same, don't update
     uint16_t delay; // in ms
@@ -42,104 +38,6 @@ union program_settings_t {
     struct program_rainbow rainbow;
 };
 static union program_settings_t program_settings = {};
-
-#define max3(a, b, c) (((a)>(b))?(((c)>(a))?(c):(a)):((c)>(b))?(c):(b))
-#define min3(a, b, c) (((a)<(b))?(((c)<(a))?(c):(a)):((c)<(b))?(c):(b))
-#define clip(a, M, m) ((a)>(M)?(M):(a)<(m)?(m):(a))
-
-void rgb2hsv(ws2812_pixel_t*in, color_HSV*out)
-{
-    if(in == NULL || out == NULL) return;
-    uint8_t min, max, delta;
-
-    min = min3(in->red,in->green,in->blue);
-    max = max3(in->red,in->green,in->blue);
-
-    out->v = ((double)max)/255.; // v
-    delta = max - min;
-    if (delta == 0) {
-        out->s = 0;
-        out->h = HUE_UNDEFINED;
-        return;
-    }
-    if( max > 0 ) { // NOTE: if Max is == 0, this divide would cause a crash
-        out->s = ((double)delta / (double)max); // s
-    } else {
-        // if max is 0, then r = g = b = 0
-        out->s = 0;
-        out->h = HUE_UNDEFINED;
-        return;
-    }
-    if( in->red == max )
-        out->h = ((double)( in->green - in->blue )) / (double)delta; // between yellow & magenta
-    else
-    if( in->green == max )
-        out->h = 2.0 + ((double)( in->blue - in->red )) / (double)delta;  // between cyan & yellow
-    else
-        out->h = 4.0 + ((double)( in->red - in->green )) / (double)delta;  // between magenta & cyan
-
-    out->h *= 60.0;                              // to degrees
-
-    if( out->h < 0.0 )
-        out->h += 360.0; // rollover
-}
-
-void hsv2rgb(color_HSV*in, ws2812_pixel_t*out)
-{
-    if(in == NULL || out == NULL) return;
-    double      hh, p, q, t, ff;
-    long        i;
-
-    if(in->s <= 0.0) {       // < is wrong, yet for compiler
-        out->red = in->v*(255); // grey
-        out->green = in->v*(255);
-        out->blue = in->v*(255);
-        return;
-    }
-    hh = in->h / 360.0;
-    hh = modf(hh, &p) * 360;
-    if(hh >= 360.0) hh = 0.0;
-    hh /= 60.0;
-    i = (long)hh;
-    ff = hh - i;
-    p = in->v * (1.0 - in->s);
-    q = in->v * (1.0 - (in->s * ff));
-    t = in->v * (1.0 - (in->s * (1.0 - ff)));
-
-    switch(i) {
-    case 0:
-        out->red = in->v*255;
-        out->green = t*255;
-        out->blue = p*255;
-        break;
-    case 1:
-        out->red = q*255;
-        out->green = in->v*255;
-        out->blue = p*255;
-        break;
-    case 2:
-        out->red = p*255;
-        out->green = in->v*255;
-        out->blue = t*255;
-        break;
-    case 3:
-        out->red = p*255;
-        out->green = q*255;
-        out->blue = in->v*255;
-        break;
-    case 4:
-        out->red = t*255;
-        out->green = p*255;
-        out->blue = in->v*255;
-        break;
-    case 5:
-    default:
-        out->red = in->v*255;
-        out->green = p*255;
-        out->blue = q*255;
-        break;
-    }
-}
 
 void ws2812_update(uint8_t *rgbbytes, int len) {
     LOGV("Starting ws2812_update, len %d", len);
@@ -227,13 +125,8 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
             return;
         }
         LOGD("Starting ws2812_update DMX_RAINBOW");
-        if(program != new_program && program_settings.rainbow.id > 0 && *(rgbbytes) == program_settings.rainbow.id) {
-            LOGD("Same Rainbow ID, skipping.");
-            return;
-        }
         if(xSemaphoreTake(ws2812_pixels_manipulation_lock, 100) == pdTRUE) {
-            program = new_program;
-            program_settings.rainbow.id = *(rgbbytes++);
+            uint8_t new_id = *(rgbbytes++);
 
             program_settings.rainbow.delay = *(rgbbytes++);
             program_settings.rainbow.delay <<=8;
@@ -247,19 +140,28 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
             program_settings.rainbow.step_length <<=8;
             program_settings.rainbow.step_length += *(rgbbytes++);
 
-            ws2812_pixel_t begin;
-            begin.red = *(rgbbytes++);
-            begin.green = *(rgbbytes++);
-            begin.blue = *(rgbbytes++);
+            if(program == new_program
+                    && new_id > 0
+                    && new_id == program_settings.rainbow.id) {
+                LOGD("Same Rainbow ID, skipping setting starting color.");
+                rgbbytes += 3;
+            } else {
+                program_settings.rainbow.id = new_id;
+                ws2812_pixel_t begin;
+                begin.red = *(rgbbytes++);
+                begin.green = *(rgbbytes++);
+                begin.blue = *(rgbbytes++);
 
-            rgb2hsv(&begin, &program_settings.rainbow.current);
+                rgb2hsv(&begin, &program_settings.rainbow.current);
+            }
+            program = new_program;
 
             program_settings.rainbow.tint.red = *(rgbbytes++);
             program_settings.rainbow.tint.green = *(rgbbytes++);
             program_settings.rainbow.tint.blue = *(rgbbytes++);
             program_settings.rainbow.tint_level = *(rgbbytes++);
 
-            LOGV("Delay %d, T step: %d, L step: %d, start color: %.0f %.0f %.0f, tint: %02x%02x%02x, level: %d",
+            LOGV("Delay %d, T step: %d, L step: %d, L[0] color: %.0f %.0f %.0f, tint: %02x%02x%02x, level: %d",
                     program_settings.rainbow.delay,
                     program_settings.rainbow.step_time,
                     program_settings.rainbow.step_length,

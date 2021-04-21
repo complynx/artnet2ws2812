@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # screw it, too many arguments, time for argparse
     parser = argparse.ArgumentParser(description='cat artnet packages')
     parser.add_argument('-i', '--input', help="IP address beginning of art-net network", default="2.*")
-    parser.add_argument('-o', '--output', help="IP address beginning of destination network", default="192.*")
+    parser.add_argument('destinations', help="IP addresses of destinations", nargs="+")
     parser.add_argument('-P', '--port', help="art-net port", default=6454, type=int)
     parser.add_argument('--destination-port', help="art-net port", dest='destination_port', default=-1, type=int)
     parser.add_argument('-p', '--print', help="Print networks", action='store_true')
@@ -90,7 +90,6 @@ if __name__ == "__main__":
         exit(0)
 
     addr_in, bc_in = get_addr(args.input)
-    addr_out, bc_out = get_addr(args.output)
 
 
     sock_in = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -105,4 +104,5 @@ if __name__ == "__main__":
 
     while True:
         data, addr = sock_in.recvfrom(1024)
-        sock_out.sendto(data, (bc_out, dest_port))
+        for dest_addr in args.destinations:
+            sock_out.sendto(data, (dest_addr, dest_port))

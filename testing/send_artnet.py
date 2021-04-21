@@ -104,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument('-u', '--universe', help="universe", default=1, type=int)
     parser.add_argument('-d', '--delay', help="delay", type=float, default=-1)
     parser.add_argument('-N', '--network', help="IP address beginning of destination network", default="192.*")
+    parser.add_argument('-A', '--address', help="IP address of destination", default="")
     parser.add_argument('-P', '--port', help="art-net port", default=6454, type=int)
     parser.add_argument('-t', '--type', help="test type",
      choices=['default', 'full_range', "rainbow", "chain", "chain_reversed"], default="default")
@@ -119,7 +120,11 @@ if __name__ == "__main__":
      default=0, type=int)
     args = parser.parse_args()
 
-    addr_out, bc_out = get_addr(args.network)
+    if args.address != "":
+    	addr_out, bc_out = args.address, args.address
+    else:
+    	addr_out, bc_out = get_addr(args.network)
+    print(addr_out, bc_out)
 
     delay = args.delay
     if delay <= 0:
