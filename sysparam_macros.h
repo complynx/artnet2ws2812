@@ -17,14 +17,14 @@
 #endif
 
 #define SPTW_GETR(type, what, where, R) do{\
-    if((err = CAT(sysparam_get_,type)(TOSTRING(what), &where)) < SYSPARAM_OK) {\
+    if((err = CAT(sysparam_get_,type)(TOSTRING(what), &(where))) < SYSPARAM_OK) {\
         LOGE("sysparam_get_"TOSTRING(type)" "TOSTRING(what)" failed (%d)", err);\
         R;\
     }\
 }while(0)
 
 #define SPTW_SETR(type, what, value, R) do{\
-    if((err = CAT(sysparam_set_,type)(TOSTRING(what), value)) < SYSPARAM_OK) {\
+    if((err = CAT(sysparam_set_,type)(TOSTRING(what), (value))) < SYSPARAM_OK) {\
         LOGE("sysparam_set_"TOSTRING(type)" "TOSTRING(what)" failed (%d)", err);\
         R;\
     }\

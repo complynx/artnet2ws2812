@@ -118,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument('--rainbow_tint_color', help="color of tint", default="#000000")
     parser.add_argument('--rainbow_tint_value', help="tint weight col_final = col (255-tint_value) + tint_col * tint_value",
      default=0, type=int)
+    parser.add_argument('--rainbow_tint_hsv', help="use hsv tint equation", action='store_true')
     args = parser.parse_args()
 
     if args.address != "":
@@ -144,7 +145,7 @@ if __name__ == "__main__":
         i+=1
         buf_pl = b"\x00" * (args.shift)
         if args.type == "rainbow":
-            #           |RBW|ID |Delay  |T step |L step |start color|tint color |tint value
+            #           |RBW|ID |Delay  |T step |L step |start color|tint color |tint value|tint type
             buf_pl += b"\x03"+\
                         rainbow_id.to_bytes(1, byteorder='little')+\
                         args.rainbow_delay.to_bytes(2, byteorder='big')+\
@@ -152,7 +153,8 @@ if __name__ == "__main__":
                         args.rainbow_length_step.to_bytes(2, byteorder='big')+\
                         str2col(args.rainbow_start_color)+\
                         str2col(args.rainbow_tint_color)+\
-                        args.rainbow_tint_value.to_bytes(1, byteorder='little')
+                        args.rainbow_tint_value.to_bytes(1, byteorder='little')+\
+                        (b"\xff" if args.rainbow_tint_hsv else b"\x00")
         elif args.type.startswith("chain"):
             buf_pl += b"\x02" if args.type == "chain_reversed" else b"\x01"
             buf_pl += bytes(hsv2rgb(random.randint(0, 359),100,50))

@@ -14,7 +14,9 @@
 #include "ws2812_i2s/ws2812_i2s.h"
 #include "ws2812.h"
 #include "logger.h"
+#include "sysparam.h"
 
+#include "sysparam_macros.h"
 #include "color_conv.h"
 
 static const char* TAG = "ws2812";
@@ -33,6 +35,7 @@ struct program_rainbow {
     color_HSV current;
     ws2812_pixel_t tint; // pixel = tint*tint_level/255 + pixel_raw*(255-tiny_level)/255;
     uint8_t tint_level;
+    uint8_t tint_type; // rgb (<128) or hsl (>=128)
 };
 union program_settings_t {
     struct program_rainbow rainbow;
@@ -127,6 +130,7 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
         LOGD("Starting ws2812_update DMX_RAINBOW");
         if(xSemaphoreTake(ws2812_pixels_manipulation_lock, 100) == pdTRUE) {
             uint8_t new_id = *(rgbbytes++);
+            int err;
 
             program_settings.rainbow.delay = *(rgbbytes++);
             program_settings.rainbow.delay <<=8;
@@ -152,6 +156,10 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
                 begin.green = *(rgbbytes++);
                 begin.blue = *(rgbbytes++);
 
+                SPTW_SETR(int8,program_settings.rainbow.begin.red,begin.red,);
+                SPTW_SETR(int8,program_settings.rainbow.begin.green,begin.green,);
+                SPTW_SETR(int8,program_settings.rainbow.begin.blue,begin.blue,);
+
                 rgb2hsv(&begin, &program_settings.rainbow.current);
             }
             program = new_program;
@@ -160,6 +168,12 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
             program_settings.rainbow.tint.green = *(rgbbytes++);
             program_settings.rainbow.tint.blue = *(rgbbytes++);
             program_settings.rainbow.tint_level = *(rgbbytes++);
+
+            if(len>14){
+                program_settings.rainbow.tint_type = *(rgbbytes++);
+            } else {
+                program_settings.rainbow.tint_type = 0;
+            }
 
             LOGV("Delay %d, T step: %d, L step: %d, L[0] color: %.0f %.0f %.0f, tint: %02x%02x%02x, level: %d",
                     program_settings.rainbow.delay,
@@ -174,6 +188,24 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
                     program_settings.rainbow.tint_level);
 
             xSemaphoreGive(ws2812_pixels_manipulation_lock);
+
+
+            int32_t tmp;
+            tmp = program_settings.rainbow.delay;
+            SPTW_SETR(int32,program_settings.rainbow.delay,tmp,);
+
+            tmp = program_settings.rainbow.step_time;
+            SPTW_SETR(int32,program_settings.rainbow.step_time,tmp,);
+
+            tmp = program_settings.rainbow.step_length;
+            SPTW_SETR(int32,program_settings.rainbow.step_length,tmp,);
+
+            SPTW_SETNR(int8,program_settings.rainbow.tint.red,);
+            SPTW_SETNR(int8,program_settings.rainbow.tint.green,);
+            SPTW_SETNR(int8,program_settings.rainbow.tint.blue,);
+
+            SPTW_SETNR(int8,program_settings.rainbow.tint_level,);
+            SPTW_SETNR(int8,program_settings.rainbow.tint_type,);
         }else{
             LOGE("FAILED TO TAKE LOCK");
         }
@@ -188,11 +220,52 @@ void ws2812_update(uint8_t *rgbbytes, int len) {
 #define MAX_THROTTLE (40/portTICK_PERIOD_MS)
 static void ws2812_updater(void *pvParameters) {
     static const char* TAG = "ws2812_updater";
+    int err;
     TickType_t current_delay = portMAX_DELAY;
 
     if(xSemaphoreTake(ws2812_pixels_manipulation_lock, 1000) == pdTRUE) {
         ws2812_i2s_init(LED_NUMBER, PIXEL_RGB);
         memset(pixels, 0, sizeof(ws2812_pixel_t) * LED_NUMBER);
+
+
+        program = DMX_RAINBOW;
+
+        int32_t tmp;
+        tmp = portMAX_DELAY;
+        SPTW_GETR(int32,program_settings.rainbow.delay,tmp,);
+        program_settings.rainbow.delay = tmp;
+
+        tmp = 0;
+        SPTW_GETR(int32,program_settings.rainbow.step_time,tmp,);
+        program_settings.rainbow.step_time = tmp;
+
+        tmp = 0;
+        SPTW_GETR(int32,program_settings.rainbow.step_length,tmp,);
+        program_settings.rainbow.step_length = tmp;
+
+        ws2812_pixel_t begin={
+                .red = 0,
+                .green = 0,
+                .blue = 0
+        };
+        SPTW_GETR(int8,program_settings.rainbow.begin.red,begin.red,);
+        SPTW_GETR(int8,program_settings.rainbow.begin.green,begin.green,);
+        SPTW_GETR(int8,program_settings.rainbow.begin.blue,begin.blue,);
+
+        rgb2hsv(&begin, &program_settings.rainbow.current);
+
+        program_settings.rainbow.tint.red=0;
+        program_settings.rainbow.tint.green=0;
+        program_settings.rainbow.tint.blue=0;
+        SPTW_GETNR(int8,program_settings.rainbow.tint.red,);
+        SPTW_GETNR(int8,program_settings.rainbow.tint.green,);
+        SPTW_GETNR(int8,program_settings.rainbow.tint.blue,);
+
+        program_settings.rainbow.tint_level=0;
+        program_settings.rainbow.tint_type=0;
+        SPTW_GETNR(int8,program_settings.rainbow.tint_level,);
+        SPTW_GETNR(int8,program_settings.rainbow.tint_type,);
+
         xSemaphoreGive(ws2812_pixels_manipulation_lock);
     }else{
         LOGE("FAILED TO TAKE LOCK");
@@ -204,9 +277,16 @@ static void ws2812_updater(void *pvParameters) {
             switch(program) {
             case DMX_RAINBOW:
                 current_delay = program_settings.rainbow.delay / portTICK_PERIOD_MS;
+                if(current_delay < 1) current_delay = 1;
                 program_settings.rainbow.current.h += program_settings.rainbow.step_time;
 
-                color_HSV L = program_settings.rainbow.current;
+                color_HSV L = program_settings.rainbow.current, LT, HSVTINT;
+                int is_hsv_tint = program_settings.rainbow.tint_type >= 128;
+                float tint_norm = (float)program_settings.rainbow.tint_level / 255.;
+
+                if(is_hsv_tint){
+                    rgb2hsv(&program_settings.rainbow.tint, &HSVTINT);
+                }
 
                 IFLOGV(ws2812_pixel_t p1;hsv2rgb(&L, &p1);)
                 LOGV("start color: %.0f %.0f %.0f, rgb: %02x%02x%02x",
@@ -214,13 +294,20 @@ static void ws2812_updater(void *pvParameters) {
                         p1.red, p1.green, p1.blue);
                 for(int i=0;i<LED_NUMBER;++i){
                     ws2812_pixel_t p;
-                    hsv2rgb(&L, &p);
-                    pixels[i].red = (uint8_t)((((uint16_t)p.red)*(255-program_settings.rainbow.tint_level) +
-                            ((uint16_t)program_settings.rainbow.tint.red)*(program_settings.rainbow.tint_level))/255);
-                    pixels[i].green = (uint8_t)((((uint16_t)p.green)*(255-program_settings.rainbow.tint_level) +
-                            ((uint16_t)program_settings.rainbow.tint.green)*(program_settings.rainbow.tint_level))/255);
-                    pixels[i].blue = (uint8_t)((((uint16_t)p.blue)*(255-program_settings.rainbow.tint_level) +
-                            ((uint16_t)program_settings.rainbow.tint.blue)*(program_settings.rainbow.tint_level))/255);
+                    if(is_hsv_tint) {
+                        LT.h = (L.h * (1.-tint_norm)) + (HSVTINT.h * tint_norm);
+                        LT.s = (L.s * (1.-tint_norm)) + (HSVTINT.s * tint_norm);
+                        LT.v = (L.v * (1.-tint_norm)) + (HSVTINT.v * tint_norm);
+                        hsv2rgb(&LT, &(pixels[i]));
+                    } else {
+                        hsv2rgb(&L, &p);
+                        pixels[i].red = (uint8_t)((((uint16_t)p.red)*(255-program_settings.rainbow.tint_level) +
+                                ((uint16_t)program_settings.rainbow.tint.red)*(program_settings.rainbow.tint_level))/255);
+                        pixels[i].green = (uint8_t)((((uint16_t)p.green)*(255-program_settings.rainbow.tint_level) +
+                                ((uint16_t)program_settings.rainbow.tint.green)*(program_settings.rainbow.tint_level))/255);
+                        pixels[i].blue = (uint8_t)((((uint16_t)p.blue)*(255-program_settings.rainbow.tint_level) +
+                                ((uint16_t)program_settings.rainbow.tint.blue)*(program_settings.rainbow.tint_level))/255);
+                    }
 
                     L.h += program_settings.rainbow.step_length;
                 }

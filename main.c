@@ -76,4 +76,5 @@ void user_init(void)
     wifi_init();
     ws2812_init();
     init_server();
+    init_osc_server();
 }

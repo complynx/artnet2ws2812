@@ -78,14 +78,15 @@ Parameters:
 * t_step — hue increment between time steps, 0-359 `LED(N).COLOR(T).hue = (LED(N).COLOR(T-1).hue + t_step) % 360`
 * l_step — hue increment between adjascent leds, 0-359 `LED(N+1).COLOR(T).hue = (LED(N).COLOR(T).hue + l_step) % 360`
 * start color — color of the first led at the beginning `LED(0).COLOR(0).RGB = START_COLOR`
-* tint — base color for the rainbow `LED(N).COLOR(T).OUTPUT = LED(N).COLOR(T).RGB * (255 - tint_level) + TINT.RGB * tint_level`
-* tint_level — level of tint color (see tint)
+* tint — base color for the rainbow `LED(N).COLOR(T).OUTPUT = LED(N).COLOR(T).& * (1 - tint_level) + TINT.& * tint_level`
+* tint_level — level of tint color (see tint) denormalized to 0-255 scale
+* tint type — RGB (<128) or HSV (>=128). If tint type is HSV, then tint equation is solved using HSV color space, else in RGB
 
 ```
 WORKMODE + WMPAYLOAD
 
 WORKMODE := 0x03
-WMPAYLOAD := ID + DELAY + T_STEP + L_STEP + START_COLOR + TINT + TINT_LEVEL
+WMPAYLOAD := ID + DELAY + T_STEP + L_STEP + START_COLOR + TINT + TINT_LEVEL + TINT_TYPE
 ID := unique byte
 DELAY := big-endian representation of uint16 delay
 T_STEP := big-endian representation of uint16 t_step
@@ -96,6 +97,7 @@ RED := byte color level
 GREEN := byte color level
 BLUE := byte color level
 TINT_LEVEL := byte tint level
+TINT_TYPE := byte tint type
 ```
 
 ## runtime setup
